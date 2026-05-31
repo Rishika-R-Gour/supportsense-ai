@@ -139,7 +139,7 @@ def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, 
     left, right = st.columns([1.2, 1])
     with left:
         st.subheader(f"{audience} Summary")
-        summary = generate_executive_summary(filtered, themes, kpis, audience)
+        summary = get_cached_summary(filtered, themes, kpis, audience)
         for item in summary:
             ticket_ids = normalize_ticket_ids(item.get("ticket_ids", []))
             with st.container(border=True):
@@ -228,18 +228,80 @@ def render_automation(filtered: pd.DataFrame, themes: list) -> None:
 def render_chat(filtered: pd.DataFrame) -> None:
     st.subheader("Ask Follow-Up Questions")
     st.caption("The demo chat uses deterministic filters and counts so it does not invent numbers.")
-    with st.form("ticket_question_form", clear_on_submit=False):
-        question = st.text_input("Question", placeholder="Example: show me angry enterprise customers this month")
-        submitted = st.form_submit_button("Ask")
 
-    if submitted and question:
-        response = answer_question(question, filtered)
+    current_data_key = dataframe_view_key(filtered)
+    if st.session_state.get("chat_data_key") != current_data_key:
+        st.session_state["chat_data_key"] = current_data_key
+        st.session_state.pop("last_chat_response", None)
+        st.session_state.pop("last_chat_question", None)
+
+    sample_questions = [
+        "show me angry enterprise customers",
+        "what are the top issues",
+        "how many enterprise integration tickets are there",
+    ]
+    sample_cols = st.columns(3)
+    for index, sample_question in enumerate(sample_questions):
+        with sample_cols[index]:
+            if st.button(sample_question, key=f"sample_question_{index}", width="stretch"):
+                st.session_state["chat_question"] = sample_question
+                st.session_state["last_chat_response"] = answer_question(sample_question, filtered)
+                st.session_state["last_chat_question"] = sample_question
+
+    question = st.text_input(
+        "Question",
+        placeholder="Example: show me angry enterprise customers this month",
+        key="chat_question",
+    )
+    col_ask, col_clear = st.columns([0.16, 0.84])
+    with col_ask:
+        ask_clicked = st.button("Ask", type="primary", width="stretch")
+    with col_clear:
+        clear_clicked = st.button("Clear", width="content")
+
+    if clear_clicked:
+        st.session_state.pop("last_chat_response", None)
+        st.session_state.pop("last_chat_question", None)
+
+    if ask_clicked and question.strip():
+        response = answer_question(question.strip(), filtered)
+        st.session_state["last_chat_response"] = response
+        st.session_state["last_chat_question"] = question.strip()
+
+    response = st.session_state.get("last_chat_response")
+    if response:
+        st.caption(f"Answering: {st.session_state.get('last_chat_question', '')}")
         st.markdown(response["answer"].replace("\n", "  \n"))
         ticket_ids = normalize_ticket_ids(response["ticket_ids"])
         if ticket_ids:
             st.caption("Evidence: " + ", ".join(ticket_ids))
             render_source_tickets(filtered, ticket_ids, "View matching tickets")
         st.caption(f"Method: {response['method']}")
+
+
+def get_cached_summary(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> list[dict[str, object]]:
+    summary_key = (
+        audience,
+        dataframe_view_key(filtered),
+        tuple((theme.name, theme.count, theme.critical_high_count, tuple(theme.ticket_ids)) for theme in themes[:8]),
+        tuple(sorted(kpis.items())),
+    )
+    cache = st.session_state.setdefault("summary_cache", {})
+    if summary_key not in cache:
+        with st.spinner(f"Generating {audience.lower()} summary..."):
+            cache[summary_key] = generate_executive_summary(filtered, themes, kpis, audience)
+    return cache[summary_key]
+
+
+def dataframe_view_key(df: pd.DataFrame) -> tuple[object, ...]:
+    if df.empty:
+        return (0, None, None)
+    return (
+        len(df),
+        str(df["created_at"].min()),
+        str(df["created_at"].max()),
+        tuple(sorted(df["ticket_id"].astype(str).head(20).tolist())),
+    )
 
 
 def render_data(filtered: pd.DataFrame) -> None:
