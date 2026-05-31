@@ -1,0 +1,6 @@
+eval_id,question,expected_method,actual_method,ticket_ids,passed
+EVAL-001,how many high priority billing tickets are there,deterministic_count,deterministic_count,"TCK-1190, TCK-1116, TCK-1117, TCK-1269, TCK-1444, TCK-1078, TCK-1003, TCK-1776",True
+EVAL-002,show me angry enterprise customers,filtered_search,filtered_search,"TCK-1515, TCK-1461, TCK-1454, TCK-1119, TCK-1723",True
+EVAL-003,what are the top issues,theme_count,theme_count,"TCK-1515, TCK-1327, TCK-1759, TCK-1463, TCK-1642, TCK-1301, TCK-1609, TCK-1332",True
+EVAL-004,how many enterprise integration tickets are there,deterministic_count,deterministic_count,"TCK-1327, TCK-1461, TCK-1302, TCK-1635, TCK-1032, TCK-1754, TCK-1723, TCK-1526",True
+EVAL-005,show me pricing complaints,keyword_search,keyword_search,"TCK-1027, TCK-1368, TCK-1250, TCK-1603, TCK-1207",True

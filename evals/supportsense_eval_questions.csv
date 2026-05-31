@@ -1,0 +1,6 @@
+eval_id,question,expected_method,minimum_ticket_ids,notes
+EVAL-001,how many high priority billing tickets are there,deterministic_count,1,Counts should come from filters rather than model guessing.
+EVAL-002,show me angry enterprise customers,filtered_search,1,Qualitative examples should cite ticket IDs.
+EVAL-003,what are the top issues,theme_count,1,Top themes should come from assigned ticket themes.
+EVAL-004,how many enterprise integration tickets are there,deterministic_count,1,Combined segment and topic filter.
+EVAL-005,show me pricing complaints,keyword_search,1,Keyword search should retrieve evidence tickets.
