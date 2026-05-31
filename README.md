@@ -36,6 +36,8 @@ CSV Upload -> Streamlit UI -> Analytics Layer
 
 The current version keeps infrastructure simple on purpose. Counts, filters, charts, and ticket retrieval are deterministic. AI is used for summarization and business framing when a model API key is available, with local fallbacks for portfolio demos.
 
+For the production-oriented architecture, data flow, API plan, database schema, security model, eval plan, and scaling strategy, see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md).
+
 ## AI Design Choices
 
 - Embeddings first, LLM second: discover ticket groups from the data, then use AI to explain them.
