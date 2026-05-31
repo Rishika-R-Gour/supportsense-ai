@@ -344,7 +344,18 @@ def apply_custom_theme() -> None:
                 grid-template-columns: 1fr;
             }
 
-            .ss-kpi-grid,
+            .ss-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .ss-kpi-card {
+                min-height: 96px;
+            }
+
+            .ss-kpi-value {
+                font-size: 1.55rem;
+            }
+
             .ss-mini-grid {
                 grid-template-columns: 1fr;
             }

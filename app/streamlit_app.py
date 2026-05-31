@@ -136,37 +136,64 @@ def render_kpis(kpis: dict[str, object]) -> None:
 
 def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> None:
     render_audience_brief(filtered, themes, kpis, audience)
-    left, right = st.columns([1.2, 1])
-    with left:
-        st.subheader(f"{audience} Summary")
-        summary = get_cached_summary(filtered, themes, kpis, audience)
-        for item in summary:
-            ticket_ids = normalize_ticket_ids(item.get("ticket_ids", []))
-            with st.container(border=True):
-                st.markdown(f"**{item['headline']}**")
-                st.write(item["detail"])
-                st.caption(f"Business impact: {item['business_impact']}")
-                st.caption("Evidence: " + ", ".join(ticket_ids))
-                render_source_tickets(filtered, ticket_ids, "View source tickets")
-    with right:
-        st.subheader("Ticket Volume")
-        st.plotly_chart(ticket_volume_chart(tickets_over_time(filtered)), width="stretch")
-        st.subheader("Priority Mix")
-        priority_df = count_by(filtered, "priority")
-        st.plotly_chart(bar_chart(priority_df, "priority", "count"), width="stretch")
-
-    st.subheader("Suggested Product Fixes")
+    summary = get_cached_summary(filtered, themes, kpis, audience)
     recommendations = build_product_recommendations(themes, filtered, audience)
-    for rec in recommendations[:4]:
-        ticket_ids = normalize_ticket_ids(rec["ticket_ids"])
-        with st.container(border=True):
-            st.markdown(f"**{rec['title']}**")
+
+    left, right = st.columns([1.25, 0.75])
+    with left:
+        st.subheader(f"{audience} Decision Brief")
+        st.caption("The three most important takeaways for this audience.")
+        for item in summary[:3]:
+            render_insight_card(filtered, item)
+
+        if len(summary) > 3:
+            with st.expander("View additional insights"):
+                for item in summary[3:]:
+                    render_insight_card(filtered, item)
+
+    with right:
+        st.subheader("Next Moves")
+        st.caption("Prioritized actions with owner and evidence.")
+        for rec in recommendations[:3]:
+            render_recommendation_card(filtered, rec)
+
+    with st.expander("Operational context: charts and detailed signals"):
+        chart_left, chart_right = st.columns(2)
+        with chart_left:
+            st.subheader("Ticket Volume")
+            st.plotly_chart(ticket_volume_chart(tickets_over_time(filtered)), width="stretch")
+        with chart_right:
+            st.subheader("Priority Mix")
+            priority_df = count_by(filtered, "priority")
+            st.plotly_chart(bar_chart(priority_df, "priority", "count"), width="stretch")
+
+
+def render_insight_card(filtered: pd.DataFrame, item: dict[str, object]) -> None:
+    ticket_ids = normalize_ticket_ids(item.get("ticket_ids", []))
+    with st.container(border=True):
+        st.markdown(f"**{item['headline']}**")
+        st.write(item["detail"])
+        with st.expander("Why it matters and source tickets"):
+            st.write(item["business_impact"])
+            st.caption("Evidence: " + ", ".join(ticket_ids))
+            source_rows = source_ticket_rows(filtered, ticket_ids)
+            if not source_rows.empty:
+                st.dataframe(source_rows, width="stretch", hide_index=True)
+
+
+def render_recommendation_card(filtered: pd.DataFrame, rec: dict[str, object]) -> None:
+    ticket_ids = normalize_ticket_ids(rec["ticket_ids"])
+    with st.container(border=True):
+        st.markdown(f"**{rec['title']}**")
+        st.write(rec["recommended_action"])
+        st.caption(f"{rec['impact']} impact | Owner: {rec['owner']}")
+        with st.expander("Evidence"):
             st.write(rec["why_it_matters"])
-            st.write(f"Recommended action: {rec['recommended_action']}")
-            st.caption(f"Impact: {rec['impact']} | Evidence: {rec['evidence']}")
-            st.caption(f"Suggested owner: {rec['owner']}")
+            st.caption(rec["evidence"])
             st.caption("Example tickets: " + ", ".join(ticket_ids))
-            render_source_tickets(filtered, ticket_ids, "View example tickets")
+            source_rows = source_ticket_rows(filtered, ticket_ids)
+            if not source_rows.empty:
+                st.dataframe(source_rows, width="stretch", hide_index=True)
 
 
 def render_audience_brief(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> None:
