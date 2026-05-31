@@ -56,7 +56,15 @@ Optional:
 cp .env.example .env
 ```
 
-Then add `ANTHROPIC_API_KEY` for Claude-powered executive summaries.
+Then add a model API key for AI-powered executive summaries. For free testing, Gemini is the easiest path:
+
+```bash
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_key_here
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+You can also use `AI_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`, or leave keys blank to use the local deterministic fallback.
 
 Run tests:
 

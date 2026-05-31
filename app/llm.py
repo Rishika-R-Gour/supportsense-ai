@@ -10,30 +10,82 @@ from app.theme_discovery import ThemeResult
 
 
 def generate_executive_summary(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return cited executive bullets, using Claude when configured and a deterministic fallback otherwise."""
-    if settings.anthropic_api_key:
+    """Return cited executive bullets, using a configured model and a deterministic fallback otherwise."""
+    if settings.ai_provider in {"auto", "gemini"} and settings.gemini_api_key:
+        try:
+            return _generate_with_gemini(df, themes, kpis)
+        except Exception:
+            if settings.ai_provider == "gemini":
+                return _fallback_summary(df, themes, kpis)
+
+    if settings.ai_provider in {"auto", "anthropic"} and settings.anthropic_api_key:
         try:
             return _generate_with_anthropic(df, themes, kpis)
         except Exception:
             return _fallback_summary(df, themes, kpis)
+
     return _fallback_summary(df, themes, kpis)
+
+
+def active_ai_provider() -> str:
+    if settings.ai_provider == "gemini" and settings.gemini_api_key:
+        return f"Gemini ({settings.gemini_model})"
+    if settings.ai_provider == "anthropic" and settings.anthropic_api_key:
+        return f"Claude ({settings.anthropic_model})"
+    if settings.ai_provider == "auto":
+        if settings.gemini_api_key:
+            return f"Gemini ({settings.gemini_model})"
+        if settings.anthropic_api_key:
+            return f"Claude ({settings.anthropic_model})"
+    return "Local deterministic fallback"
+
+
+def _summary_prompt(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> dict[str, Any]:
+    examples = df.head(40)[["ticket_id", "customer_segment", "priority", "subject", "description"]].to_dict("records")
+    theme_payload = [theme.__dict__ for theme in themes[:8]]
+    return {
+        "kpis": kpis,
+        "themes": theme_payload,
+        "representative_tickets": examples,
+        "instruction": (
+            "Write exactly five executive support insights as JSON. Each item must include "
+            "headline, detail, business_impact, confidence, and ticket_ids. Use only the data provided. "
+            "Return only valid JSON as a list of objects, with no markdown."
+        ),
+    }
+
+
+def _parse_json_response(text: str) -> list[dict[str, Any]]:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        cleaned = cleaned.removeprefix("json").strip()
+    parsed = json.loads(cleaned)
+    return parsed if isinstance(parsed, list) else parsed["insights"]
+
+
+def _generate_with_gemini(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=settings.gemini_api_key)
+    prompt = _summary_prompt(df, themes, kpis)
+    response = client.models.generate_content(
+        model=settings.gemini_model,
+        contents=json.dumps(prompt),
+        config=types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json",
+        ),
+    )
+    return _parse_json_response(response.text or "[]")
 
 
 def _generate_with_anthropic(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
     from anthropic import Anthropic
 
     client = Anthropic(api_key=settings.anthropic_api_key)
-    examples = df.head(40)[["ticket_id", "customer_segment", "priority", "subject", "description"]].to_dict("records")
-    theme_payload = [theme.__dict__ for theme in themes[:8]]
-    prompt = {
-        "kpis": kpis,
-        "themes": theme_payload,
-        "representative_tickets": examples,
-        "instruction": (
-            "Write exactly five executive support insights as JSON. Each item must include "
-            "headline, detail, business_impact, confidence, and ticket_ids. Use only the data provided."
-        ),
-    }
+    prompt = _summary_prompt(df, themes, kpis)
     response = client.messages.create(
         model=settings.anthropic_model,
         max_tokens=1200,
@@ -41,8 +93,7 @@ def _generate_with_anthropic(df: pd.DataFrame, themes: list[ThemeResult], kpis: 
         messages=[{"role": "user", "content": json.dumps(prompt)}],
     )
     text = response.content[0].text
-    parsed = json.loads(text)
-    return parsed if isinstance(parsed, list) else parsed["insights"]
+    return _parse_json_response(text)
 
 
 def _fallback_summary(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:

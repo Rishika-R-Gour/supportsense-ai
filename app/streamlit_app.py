@@ -7,7 +7,7 @@ from app.analytics import compute_kpis, count_by, segment_priority_matrix, ticke
 from app.charts import bar_chart, theme_chart, ticket_volume_chart
 from app.chat import answer_question
 from app.data_loader import filter_tickets, load_ticket_csv, sample_dataset_path
-from app.llm import generate_executive_summary
+from app.llm import active_ai_provider, generate_executive_summary
 from app.recommendations import build_product_recommendations, classify_automation_opportunity
 from app.theme_discovery import add_theme_column, discover_themes
 
@@ -23,6 +23,7 @@ def load_sample_data() -> pd.DataFrame:
 def main() -> None:
     st.title("SupportSense")
     st.caption("AI customer support analyzer for executive insight, product prioritization, and trusted follow-up questions.")
+    st.sidebar.caption(f"AI provider: {active_ai_provider()}")
 
     uploaded = st.sidebar.file_uploader("Upload support tickets CSV", type=["csv"])
     if uploaded:
