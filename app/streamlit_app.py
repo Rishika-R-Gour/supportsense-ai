@@ -26,6 +26,13 @@ SOURCE_TICKET_COLUMNS = [
     "csat_score",
 ]
 
+AUDIENCE_OPTIONS = ["CEO", "Product", "Support"]
+AUDIENCE_BRIEFS = {
+    "CEO": "Customer risk, renewal exposure, and operating focus.",
+    "Product": "Root causes, product areas, and roadmap tradeoffs.",
+    "Support": "Queue health, escalation patterns, and automation opportunities.",
+}
+
 
 @st.cache_data(show_spinner=False)
 def load_sample_data() -> pd.DataFrame:
@@ -42,6 +49,7 @@ def main() -> None:
     st.caption("AI customer support analyzer for executive insight, product prioritization, and trusted follow-up questions.")
     st.sidebar.caption(f"AI provider: {active_ai_provider()}")
     st.sidebar.caption(f"Theme discovery: {theme_discovery_method()}")
+    audience = st.sidebar.radio("Audience lens", AUDIENCE_OPTIONS, horizontal=True, key="audience_lens")
 
     uploaded = st.sidebar.file_uploader("Upload support tickets CSV", type=["csv"])
     if uploaded:
@@ -64,7 +72,7 @@ def main() -> None:
     )
 
     with tab_overview:
-        render_executive_view(filtered, themes, kpis)
+        render_executive_view(filtered, themes, kpis, audience)
     with tab_themes:
         render_themes(filtered, themes)
     with tab_automation:
@@ -115,11 +123,12 @@ def render_kpis(kpis: dict[str, object]) -> None:
     col5.metric("Open Work", f"{kpis['open_pct']}%")
 
 
-def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, object]) -> None:
+def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> None:
+    render_audience_brief(filtered, themes, kpis, audience)
     left, right = st.columns([1.2, 1])
     with left:
-        st.subheader("Executive Summary")
-        summary = generate_executive_summary(filtered, themes, kpis)
+        st.subheader(f"{audience} Summary")
+        summary = generate_executive_summary(filtered, themes, kpis, audience)
         for item in summary:
             ticket_ids = normalize_ticket_ids(item.get("ticket_ids", []))
             with st.container(border=True):
@@ -136,15 +145,33 @@ def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, 
         st.plotly_chart(bar_chart(priority_df, "priority", "count"), width="stretch")
 
     st.subheader("Suggested Product Fixes")
-    recommendations = build_product_recommendations(themes, filtered)
+    recommendations = build_product_recommendations(themes, filtered, audience)
     for rec in recommendations[:4]:
         ticket_ids = normalize_ticket_ids(rec["ticket_ids"])
         with st.container(border=True):
             st.markdown(f"**{rec['title']}**")
             st.write(rec["why_it_matters"])
+            st.write(f"Recommended action: {rec['recommended_action']}")
             st.caption(f"Impact: {rec['impact']} | Evidence: {rec['evidence']}")
+            st.caption(f"Suggested owner: {rec['owner']}")
             st.caption("Example tickets: " + ", ".join(ticket_ids))
             render_source_tickets(filtered, ticket_ids, "View example tickets")
+
+
+def render_audience_brief(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> None:
+    top_theme = themes[0].name if themes else "No dominant theme"
+    urgent_count = int(filtered["priority"].isin(["Critical", "High"]).sum()) if not filtered.empty else 0
+    enterprise_urgent = int(
+        ((filtered["customer_segment"] == "Enterprise") & filtered["priority"].isin(["Critical", "High"])).sum()
+    ) if not filtered.empty else 0
+
+    with st.container(border=True):
+        st.caption(f"{audience} lens")
+        st.markdown(f"**{AUDIENCE_BRIEFS.get(audience, AUDIENCE_BRIEFS['CEO'])}**")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Top theme", top_theme)
+        col2.metric("Urgent tickets", urgent_count)
+        col3.metric("Enterprise urgent", enterprise_urgent)
 
 
 def render_themes(filtered: pd.DataFrame, themes: list) -> None:

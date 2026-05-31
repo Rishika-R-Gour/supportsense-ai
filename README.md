@@ -19,7 +19,8 @@ SupportSense compresses an analyst workflow into a fast, demo-friendly AI workfl
 2. Review executive KPIs and five cited insights.
 3. Inspect top issue themes, trends, and example tickets.
 4. See bot-solvable vs human-required ticket categories.
-5. Ask follow-up questions like "show me angry enterprise customers" or "how many billing tickets are high priority".
+5. Switch between CEO, Product, and Support lenses to reframe the same evidence for different stakeholders.
+6. Ask follow-up questions like "show me angry enterprise customers" or "how many billing tickets are high priority".
 
 ## Architecture
 
@@ -39,6 +40,7 @@ The current version keeps infrastructure simple on purpose. Counts, filters, cha
 - Deterministic counts: the app computes numbers directly instead of asking a model to guess.
 - Citations by default: claims include ticket IDs so a skeptical stakeholder can inspect the source.
 - Evidence drill-down: executive insights, recommendations, themes, and chat answers can open the source ticket rows.
+- Audience lens: the same dataset can be packaged for CEO, Product, or Support conversations.
 - Human-in-the-loop framing: automation is recommended for repetitive cases, not for bugs, renewals, or roadmap decisions.
 
 ## Run Locally

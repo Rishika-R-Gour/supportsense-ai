@@ -5,6 +5,7 @@ SupportSense turns a CSV of customer support tickets into leadership-ready insig
 ## What the AI does
 
 It helps summarize repeated customer pain, name support themes, explain why issues matter, and draft product recommendations.
+It can also reframe the same evidence for a CEO, Product leader, or Support leader.
 
 ## What the AI does not do
 

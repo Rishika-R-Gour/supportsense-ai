@@ -9,22 +9,27 @@ from app.config import settings
 from app.theme_discovery import ThemeResult
 
 
-def generate_executive_summary(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
+def generate_executive_summary(
+    df: pd.DataFrame,
+    themes: list[ThemeResult],
+    kpis: dict[str, Any],
+    audience: str = "CEO",
+) -> list[dict[str, Any]]:
     """Return cited executive bullets, using a configured model and a deterministic fallback otherwise."""
     if settings.ai_provider in {"auto", "gemini"} and settings.gemini_api_key:
         try:
-            return _generate_with_gemini(df, themes, kpis)
+            return _generate_with_gemini(df, themes, kpis, audience)
         except Exception:
             if settings.ai_provider == "gemini":
-                return _fallback_summary(df, themes, kpis)
+                return _fallback_summary(df, themes, kpis, audience)
 
     if settings.ai_provider in {"auto", "anthropic"} and settings.anthropic_api_key:
         try:
-            return _generate_with_anthropic(df, themes, kpis)
+            return _generate_with_anthropic(df, themes, kpis, audience)
         except Exception:
-            return _fallback_summary(df, themes, kpis)
+            return _fallback_summary(df, themes, kpis, audience)
 
-    return _fallback_summary(df, themes, kpis)
+    return _fallback_summary(df, themes, kpis, audience)
 
 
 def active_ai_provider() -> str:
@@ -40,16 +45,18 @@ def active_ai_provider() -> str:
     return "Local deterministic fallback"
 
 
-def _summary_prompt(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> dict[str, Any]:
+def _summary_prompt(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any], audience: str) -> dict[str, Any]:
     examples = df.head(40)[["ticket_id", "customer_segment", "priority", "subject", "description"]].to_dict("records")
     theme_payload = [theme.__dict__ for theme in themes[:8]]
     return {
+        "audience": audience,
         "kpis": kpis,
         "themes": theme_payload,
         "representative_tickets": examples,
         "instruction": (
             "Write exactly five executive support insights as JSON. Each item must include "
             "headline, detail, business_impact, confidence, and ticket_ids. Use only the data provided. "
+            f"Tailor the language for this audience: {audience}. {_audience_instruction(audience)} "
             "Return only valid JSON as a list of objects, with no markdown."
         ),
     }
@@ -64,12 +71,17 @@ def _parse_json_response(text: str) -> list[dict[str, Any]]:
     return parsed if isinstance(parsed, list) else parsed["insights"]
 
 
-def _generate_with_gemini(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
+def _generate_with_gemini(
+    df: pd.DataFrame,
+    themes: list[ThemeResult],
+    kpis: dict[str, Any],
+    audience: str,
+) -> list[dict[str, Any]]:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=settings.gemini_api_key)
-    prompt = _summary_prompt(df, themes, kpis)
+    prompt = _summary_prompt(df, themes, kpis, audience)
     response = client.models.generate_content(
         model=settings.gemini_model,
         contents=json.dumps(prompt),
@@ -81,11 +93,16 @@ def _generate_with_gemini(df: pd.DataFrame, themes: list[ThemeResult], kpis: dic
     return _parse_json_response(response.text or "[]")
 
 
-def _generate_with_anthropic(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
+def _generate_with_anthropic(
+    df: pd.DataFrame,
+    themes: list[ThemeResult],
+    kpis: dict[str, Any],
+    audience: str,
+) -> list[dict[str, Any]]:
     from anthropic import Anthropic
 
     client = Anthropic(api_key=settings.anthropic_api_key)
-    prompt = _summary_prompt(df, themes, kpis)
+    prompt = _summary_prompt(df, themes, kpis, audience)
     response = client.messages.create(
         model=settings.anthropic_model,
         max_tokens=1200,
@@ -96,7 +113,12 @@ def _generate_with_anthropic(df: pd.DataFrame, themes: list[ThemeResult], kpis: 
     return _parse_json_response(text)
 
 
-def _fallback_summary(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any]) -> list[dict[str, Any]]:
+def _fallback_summary(
+    df: pd.DataFrame,
+    themes: list[ThemeResult],
+    kpis: dict[str, Any],
+    audience: str,
+) -> list[dict[str, Any]]:
     if df.empty:
         return []
 
@@ -111,37 +133,69 @@ def _fallback_summary(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[st
                 f"{kpis['critical_high_pct']}% are high or critical priority, with an average CSAT of "
                 f"{kpis['avg_csat']}."
             ),
-            "business_impact": "Leadership has a quick read on volume, urgency, and customer satisfaction.",
+            "business_impact": _audience_impact(
+                audience,
+                "Leadership has a quick read on volume, urgency, and customer satisfaction.",
+            ),
             "confidence": "High",
             "ticket_ids": df.head(5)["ticket_id"].astype(str).tolist(),
         },
         {
             "headline": f"Top friction theme: {top_theme.name if top_theme else 'None'}",
             "detail": top_theme.summary if top_theme else "No dominant theme found.",
-            "business_impact": "This is the first place product and support leaders should inspect.",
+            "business_impact": _audience_impact(
+                audience,
+                "This is the first place product and support leaders should inspect.",
+            ),
             "confidence": "Medium",
             "ticket_ids": top_theme.ticket_ids if top_theme else [],
         },
         {
             "headline": "Enterprise accounts drive a meaningful share of urgent work",
             "detail": f"{len(enterprise_high)} enterprise tickets are high or critical in the current view.",
-            "business_impact": "Enterprise friction has higher renewal and expansion risk.",
+            "business_impact": _audience_impact(
+                audience,
+                "Enterprise friction has higher renewal and expansion risk.",
+            ),
             "confidence": "High",
             "ticket_ids": enterprise_high.head(5)["ticket_id"].astype(str).tolist(),
         },
         {
             "headline": "Low-CSAT tickets show where trust is breaking",
             "detail": "The worst-rated tickets cluster around slow resolution, unclear ownership, or blocked workflows.",
-            "business_impact": "These tickets are useful coaching and escalation samples for support leadership.",
+            "business_impact": _audience_impact(
+                audience,
+                "These tickets are useful coaching and escalation samples for support leadership.",
+            ),
             "confidence": "Medium",
             "ticket_ids": low_csat["ticket_id"].astype(str).tolist(),
         },
         {
             "headline": "Several issues are candidates for automation",
             "detail": "Billing, access, and documentation-style requests can often be deflected with guided support flows.",
-            "business_impact": "Automation should reduce repeat tickets while preserving human help for complex cases.",
+            "business_impact": _audience_impact(
+                audience,
+                "Automation should reduce repeat tickets while preserving human help for complex cases.",
+            ),
             "confidence": "Medium",
             "ticket_ids": df[df["bot_solvable_label"] == "bot_solvable"].head(5)["ticket_id"].astype(str).tolist(),
         },
     ]
     return bullets
+
+
+def _audience_instruction(audience: str) -> str:
+    instructions = {
+        "CEO": "Focus on customer risk, revenue exposure, operating leverage, and board-level decisions.",
+        "Product": "Focus on product areas, root causes, roadmap tradeoffs, severity, and fix prioritization.",
+        "Support": "Focus on queue health, escalation paths, deflection opportunities, macros, and coaching moments.",
+    }
+    return instructions.get(audience, instructions["CEO"])
+
+
+def _audience_impact(audience: str, default: str) -> str:
+    if audience == "Product":
+        return f"Product lens: {default} Translate this into roadmap priority and root-cause investigation."
+    if audience == "Support":
+        return f"Support lens: {default} Translate this into triage, enablement, and automation actions."
+    return f"CEO lens: {default} Translate this into customer risk and operating focus."

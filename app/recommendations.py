@@ -36,7 +36,7 @@ def classify_automation_opportunity(df: pd.DataFrame) -> pd.DataFrame:
     return counts.rename(columns={"automation_category": "category"})
 
 
-def build_product_recommendations(themes: list[ThemeResult], df: pd.DataFrame) -> list[dict[str, object]]:
+def build_product_recommendations(themes: list[ThemeResult], df: pd.DataFrame, audience: str = "CEO") -> list[dict[str, object]]:
     recommendations: list[dict[str, object]] = []
     total = max(len(df), 1)
 
@@ -50,6 +50,8 @@ def build_product_recommendations(themes: list[ThemeResult], df: pd.DataFrame) -
             "theme": theme.name,
             "evidence": f"{theme.count} tickets ({theme.share}% of filtered volume), {theme.critical_high_count} high or critical.",
             "why_it_matters": _why_it_matters(theme.name),
+            "recommended_action": _recommended_action(theme.name, audience),
+            "owner": _recommended_owner(theme.name, audience),
             "ticket_ids": theme.ticket_ids,
         }
         recommendations.append(recommendation)
@@ -100,3 +102,56 @@ def _why_it_matters(theme: str) -> str:
         "Feature requests": "Repeated requests are demand signals for product discovery.",
     }
     return reasons.get(theme, "The theme shows repeated customer friction that leadership should inspect.")
+
+
+def _recommended_action(theme: str, audience: str) -> str:
+    if audience == "Product":
+        actions = {
+            "Reporting exports": "Scope export reliability work and add regression coverage for filtered report downloads.",
+            "Performance and reliability": "Profile slow dashboard paths and prioritize the highest-volume latency regressions.",
+            "Billing and pricing": "Clarify plan, renewal, and invoice states in-product before billing escalation.",
+            "Integrations": "Add sync-health diagnostics and clearer recovery steps for failed integrations.",
+            "Permissions and security": "Simplify role mapping and SSO error messages for admins.",
+            "Onboarding and documentation": "Close setup gaps with guided onboarding and better in-product docs.",
+            "Workflow automation": "Expose rule audit trails and make trigger conditions easier to inspect.",
+            "Feature requests": "Group repeated asks into discovery themes and size the highest-value roadmap gaps.",
+        }
+        return actions.get(theme, "Investigate root cause and size the product opportunity.")
+
+    if audience == "Support":
+        actions = {
+            "Reporting exports": "Create an export-incident macro and escalation path for blocked reporting workflows.",
+            "Performance and reliability": "Tag latency tickets consistently and route severe cases to incident review.",
+            "Billing and pricing": "Build a billing explanation macro and self-serve invoice checklist.",
+            "Integrations": "Create integration troubleshooting runbooks with sync status checks.",
+            "Permissions and security": "Publish admin-access playbooks for SSO, MFA, and role-mapping issues.",
+            "Onboarding and documentation": "Turn repeated setup confusion into onboarding macros and help-center updates.",
+            "Workflow automation": "Create workflow debugging scripts for rule triggers and approval paths.",
+            "Feature requests": "Route repeated requests into product feedback with customer segment and ARR context.",
+        }
+        return actions.get(theme, "Create a triage workflow and collect evidence for the owning team.")
+
+    actions = {
+        "Reporting exports": "Assign an owner to reduce reporting blockers for high-value accounts this quarter.",
+        "Performance and reliability": "Treat reliability as a retention risk and review progress weekly.",
+        "Billing and pricing": "Reduce billing friction before renewal conversations are affected.",
+        "Integrations": "Protect daily customer workflows by improving integration reliability.",
+        "Permissions and security": "Remove access friction that slows enterprise rollout.",
+        "Onboarding and documentation": "Reduce early-life support dependency and improve time-to-value.",
+        "Workflow automation": "Improve automation trust so customers expand usage instead of reverting to manual work.",
+        "Feature requests": "Decide which repeated requests are strategic enough for product investment.",
+    }
+    return actions.get(theme, "Assign an owner and decide whether this is a retention, efficiency, or roadmap priority.")
+
+
+def _recommended_owner(theme: str, audience: str) -> str:
+    if audience == "Support":
+        return "Support Ops"
+    if audience == "Product":
+        return "Product"
+    owners = {
+        "Billing and pricing": "Revenue Ops",
+        "Feature requests": "Product",
+        "Onboarding and documentation": "Customer Success",
+    }
+    return owners.get(theme, "Product + Support")
