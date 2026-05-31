@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Iterable
 
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
+
+import numpy as np
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+from app.config import settings
 
 
 THEME_TAXONOMY: dict[str, list[str]] = {
@@ -109,8 +116,7 @@ def discover_themes(df: pd.DataFrame) -> list[ThemeResult]:
     if df.empty:
         return []
 
-    themed = df.copy()
-    themed["theme"] = themed["ticket_text"].fillna("").map(assign_theme)
+    themed = df.copy() if "theme" in df.columns else add_theme_column(df)
 
     results: list[ThemeResult] = []
     for theme, group in themed.groupby("theme"):
@@ -140,8 +146,121 @@ def discover_themes(df: pd.DataFrame) -> list[ThemeResult]:
 
 def add_theme_column(df: pd.DataFrame) -> pd.DataFrame:
     themed = df.copy()
-    themed["theme"] = themed["ticket_text"].fillna("").map(assign_theme)
+    texts = themed["ticket_text"].fillna("").astype(str).tolist()
+    if len(texts) < 6:
+        themed["theme"] = themed["ticket_text"].fillna("").map(assign_theme)
+        themed["theme_method"] = "keyword"
+        return themed
+
+    embeddings, method = _build_embeddings(texts)
+    cluster_count = _choose_cluster_count(texts)
+    if cluster_count < 2:
+        themed["theme"] = themed["ticket_text"].fillna("").map(assign_theme)
+        themed["theme_method"] = "keyword"
+        return themed
+
+    labels = _kmeans_labels(embeddings, cluster_count)
+    themed["theme_cluster"] = labels
+    themed["theme_method"] = method
+
+    theme_names = {
+        cluster_id: _label_cluster(themed[themed["theme_cluster"] == cluster_id])
+        for cluster_id in sorted(set(labels))
+    }
+    themed["theme"] = themed["theme_cluster"].map(theme_names)
     return themed
+
+
+def theme_discovery_method() -> str:
+    provider = settings.theme_embedding_provider
+    if provider == "gemini" and settings.gemini_api_key:
+        return f"Gemini embeddings ({settings.gemini_embedding_model})"
+    if provider == "auto" and settings.gemini_api_key:
+        return f"Gemini embeddings ({settings.gemini_embedding_model})"
+    return "Local TF-IDF embeddings"
+
+
+def _build_embeddings(texts: list[str]) -> tuple[np.ndarray, str]:
+    provider = settings.theme_embedding_provider
+    if provider in {"auto", "gemini"} and settings.gemini_api_key:
+        try:
+            return _embed_with_gemini(texts), "gemini_embeddings"
+        except Exception:
+            if provider == "gemini":
+                return _embed_with_tfidf(texts), "tfidf_fallback_after_gemini_error"
+
+    return _embed_with_tfidf(texts), "tfidf_embeddings"
+
+
+def _embed_with_gemini(texts: list[str]) -> np.ndarray:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=settings.gemini_api_key)
+    vectors: list[list[float]] = []
+    for batch_start in range(0, len(texts), 100):
+        batch = texts[batch_start : batch_start + 100]
+        response = client.models.embed_content(
+            model=settings.gemini_embedding_model,
+            contents=batch,
+            config=types.EmbedContentConfig(task_type="CLUSTERING"),
+        )
+        vectors.extend([embedding.values for embedding in response.embeddings])
+    return np.array(vectors, dtype=float)
+
+
+def _embed_with_tfidf(texts: list[str]) -> np.ndarray:
+    vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2), max_features=300)
+    matrix = vectorizer.fit_transform(texts)
+    return matrix.toarray()
+
+
+def _choose_cluster_count(texts: list[str]) -> int:
+    unique_text_count = len(set(texts))
+    if unique_text_count < 2:
+        return 1
+    by_volume = max(4, min(8, len(texts) // 80))
+    return min(by_volume, unique_text_count)
+
+
+def _kmeans_labels(embeddings: np.ndarray, cluster_count: int, iterations: int = 18) -> np.ndarray:
+    if len(embeddings) <= cluster_count:
+        return np.arange(len(embeddings))
+
+    vectors = _normalize_rows(embeddings)
+    initial_indices = np.linspace(0, len(vectors) - 1, cluster_count, dtype=int)
+    centroids = vectors[initial_indices].copy()
+
+    labels = np.zeros(len(vectors), dtype=int)
+    for _ in range(iterations):
+        distances = np.linalg.norm(vectors[:, None, :] - centroids[None, :, :], axis=2)
+        next_labels = distances.argmin(axis=1)
+        if np.array_equal(labels, next_labels):
+            break
+        labels = next_labels
+        for cluster_id in range(cluster_count):
+            members = vectors[labels == cluster_id]
+            if len(members):
+                centroids[cluster_id] = members.mean(axis=0)
+    return labels
+
+
+def _normalize_rows(values: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(values, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    return values / norms
+
+
+def _label_cluster(group: pd.DataFrame) -> str:
+    combined = " ".join(group["ticket_text"].fillna("").astype(str).tolist())
+    taxonomy_label = assign_theme(combined)
+    if taxonomy_label != "Other customer friction":
+        return taxonomy_label
+
+    top_area = _top_value(group["product_area"])
+    if top_area != "unknown":
+        return f"{top_area} friction"
+    return "Other customer friction"
 
 
 def _split_current_previous(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

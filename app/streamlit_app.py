@@ -9,7 +9,7 @@ from app.chat import answer_question
 from app.data_loader import filter_tickets, load_ticket_csv, sample_dataset_path
 from app.llm import active_ai_provider, generate_executive_summary
 from app.recommendations import build_product_recommendations, classify_automation_opportunity
-from app.theme_discovery import add_theme_column, discover_themes
+from app.theme_discovery import add_theme_column, discover_themes, theme_discovery_method
 
 
 st.set_page_config(page_title="SupportSense", page_icon="SS", layout="wide")
@@ -20,10 +20,16 @@ def load_sample_data() -> pd.DataFrame:
     return load_ticket_csv(sample_dataset_path())
 
 
+@st.cache_data(show_spinner=False)
+def add_themes_cached(df: pd.DataFrame) -> pd.DataFrame:
+    return add_theme_column(df)
+
+
 def main() -> None:
     st.title("SupportSense")
     st.caption("AI customer support analyzer for executive insight, product prioritization, and trusted follow-up questions.")
     st.sidebar.caption(f"AI provider: {active_ai_provider()}")
+    st.sidebar.caption(f"Theme discovery: {theme_discovery_method()}")
 
     uploaded = st.sidebar.file_uploader("Upload support tickets CSV", type=["csv"])
     if uploaded:
@@ -34,7 +40,8 @@ def main() -> None:
         st.sidebar.info("Using the included sample dataset")
 
     filtered = render_filters(raw_df)
-    filtered = add_theme_column(filtered)
+    with st.spinner("Discovering ticket themes..."):
+        filtered = add_themes_cached(filtered)
     themes = discover_themes(filtered)
     kpis = compute_kpis(filtered)
 

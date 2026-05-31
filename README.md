@@ -31,11 +31,11 @@ CSV Upload -> Streamlit UI -> Analytics Layer
                          -> Ticket Chat
 ```
 
-The current version keeps infrastructure simple on purpose. Counts, filters, charts, and ticket retrieval are deterministic. AI is used for summarization and business framing when an Anthropic API key is available, with local fallbacks for portfolio demos.
+The current version keeps infrastructure simple on purpose. Counts, filters, charts, and ticket retrieval are deterministic. AI is used for summarization and business framing when a model API key is available, with local fallbacks for portfolio demos.
 
 ## AI Design Choices
 
-- Embeddings or taxonomy first, LLM second: discover ticket groups from the data, then use AI to explain them.
+- Embeddings first, LLM second: discover ticket groups from the data, then use AI to explain them.
 - Deterministic counts: the app computes numbers directly instead of asking a model to guess.
 - Citations by default: claims include ticket IDs so a skeptical stakeholder can inspect the source.
 - Human-in-the-loop framing: automation is recommended for repetitive cases, not for bugs, renewals, or roadmap decisions.
@@ -62,9 +62,10 @@ Then add a model API key for AI-powered executive summaries. For free testing, G
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_key_here
 GEMINI_MODEL=gemini-2.5-flash
+THEME_EMBEDDING_PROVIDER=local
 ```
 
-You can also use `AI_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`, or leave keys blank to use the local deterministic fallback.
+You can also use `AI_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`, or leave keys blank to use the local deterministic fallback. For semantic theme clustering with Gemini, set `THEME_EMBEDDING_PROVIDER=gemini`. Use synthetic or approved data when sending tickets to an external model provider.
 
 Run tests:
 
