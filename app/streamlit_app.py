@@ -14,6 +14,18 @@ from app.theme_discovery import add_theme_column, discover_themes, theme_discove
 
 st.set_page_config(page_title="SupportSense", page_icon="SS", layout="wide")
 
+SOURCE_TICKET_COLUMNS = [
+    "ticket_id",
+    "created_at",
+    "customer_name",
+    "customer_segment",
+    "priority",
+    "product_area",
+    "subject",
+    "description",
+    "csat_score",
+]
+
 
 @st.cache_data(show_spinner=False)
 def load_sample_data() -> pd.DataFrame:
@@ -109,11 +121,13 @@ def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, 
         st.subheader("Executive Summary")
         summary = generate_executive_summary(filtered, themes, kpis)
         for item in summary:
+            ticket_ids = normalize_ticket_ids(item.get("ticket_ids", []))
             with st.container(border=True):
                 st.markdown(f"**{item['headline']}**")
                 st.write(item["detail"])
                 st.caption(f"Business impact: {item['business_impact']}")
-                st.caption("Evidence: " + ", ".join(item.get("ticket_ids", [])))
+                st.caption("Evidence: " + ", ".join(ticket_ids))
+                render_source_tickets(filtered, ticket_ids, "View source tickets")
     with right:
         st.subheader("Ticket Volume")
         st.plotly_chart(ticket_volume_chart(tickets_over_time(filtered)), width="stretch")
@@ -124,11 +138,13 @@ def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, 
     st.subheader("Suggested Product Fixes")
     recommendations = build_product_recommendations(themes, filtered)
     for rec in recommendations[:4]:
+        ticket_ids = normalize_ticket_ids(rec["ticket_ids"])
         with st.container(border=True):
             st.markdown(f"**{rec['title']}**")
             st.write(rec["why_it_matters"])
             st.caption(f"Impact: {rec['impact']} | Evidence: {rec['evidence']}")
-            st.caption("Example tickets: " + ", ".join(rec["ticket_ids"]))
+            st.caption("Example tickets: " + ", ".join(ticket_ids))
+            render_source_tickets(filtered, ticket_ids, "View example tickets")
 
 
 def render_themes(filtered: pd.DataFrame, themes: list) -> None:
@@ -147,6 +163,9 @@ def render_themes(filtered: pd.DataFrame, themes: list) -> None:
                 st.write(theme.summary)
                 st.caption(f"Avg CSAT: {theme.avg_csat} | High/Critical: {theme.critical_high_count}")
                 st.caption("Evidence: " + ", ".join(theme.ticket_ids))
+                theme_sources = source_ticket_rows(filtered, theme.ticket_ids)
+                if not theme_sources.empty:
+                    st.dataframe(theme_sources, width="stretch", hide_index=True)
 
     st.subheader("Segment x Priority")
     st.dataframe(segment_priority_matrix(filtered), width="stretch")
@@ -178,8 +197,10 @@ def render_chat(filtered: pd.DataFrame) -> None:
     if submitted and question:
         response = answer_question(question, filtered)
         st.markdown(response["answer"].replace("\n", "  \n"))
-        if response["ticket_ids"]:
-            st.caption("Evidence: " + ", ".join(response["ticket_ids"]))
+        ticket_ids = normalize_ticket_ids(response["ticket_ids"])
+        if ticket_ids:
+            st.caption("Evidence: " + ", ".join(ticket_ids))
+            render_source_tickets(filtered, ticket_ids, "View matching tickets")
         st.caption(f"Method: {response['method']}")
 
 
@@ -188,6 +209,43 @@ def render_data(filtered: pd.DataFrame) -> None:
     st.dataframe(top_customer_examples(filtered), width="stretch", hide_index=True)
     st.subheader("Raw Data")
     st.dataframe(filtered, width="stretch", hide_index=True)
+
+
+def render_source_tickets(df: pd.DataFrame, ticket_ids: list[str] | object, label: str) -> None:
+    rows = source_ticket_rows(df, ticket_ids)
+    if rows.empty:
+        return
+    with st.expander(label):
+        st.dataframe(rows, width="stretch", hide_index=True)
+
+
+def source_ticket_rows(df: pd.DataFrame, ticket_ids: list[str] | object) -> pd.DataFrame:
+    normalized_ids = normalize_ticket_ids(ticket_ids)
+    if not normalized_ids:
+        return pd.DataFrame(columns=SOURCE_TICKET_COLUMNS)
+
+    available_columns = [column for column in SOURCE_TICKET_COLUMNS if column in df.columns]
+    rows = df[df["ticket_id"].astype(str).isin(normalized_ids)][available_columns].copy()
+    if rows.empty:
+        return rows
+
+    order = {ticket_id: index for index, ticket_id in enumerate(normalized_ids)}
+    rows["_source_order"] = rows["ticket_id"].astype(str).map(order)
+    rows = rows.sort_values("_source_order").drop(columns="_source_order")
+    rows["created_at"] = pd.to_datetime(rows["created_at"]).dt.date.astype(str)
+    return rows
+
+
+def normalize_ticket_ids(ticket_ids: list[str] | object) -> list[str]:
+    if ticket_ids is None:
+        return []
+    if isinstance(ticket_ids, str):
+        raw_ids = ticket_ids.split(",")
+    elif isinstance(ticket_ids, list):
+        raw_ids = ticket_ids
+    else:
+        raw_ids = list(ticket_ids) if hasattr(ticket_ids, "__iter__") else []
+    return [str(ticket_id).strip() for ticket_id in raw_ids if str(ticket_id).strip()]
 
 
 if __name__ == "__main__":

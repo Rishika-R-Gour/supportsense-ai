@@ -38,6 +38,7 @@ The current version keeps infrastructure simple on purpose. Counts, filters, cha
 - Embeddings first, LLM second: discover ticket groups from the data, then use AI to explain them.
 - Deterministic counts: the app computes numbers directly instead of asking a model to guess.
 - Citations by default: claims include ticket IDs so a skeptical stakeholder can inspect the source.
+- Evidence drill-down: executive insights, recommendations, themes, and chat answers can open the source ticket rows.
 - Human-in-the-loop framing: automation is recommended for repetitive cases, not for bugs, renewals, or roadmap decisions.
 
 ## Run Locally

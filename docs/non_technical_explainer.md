@@ -13,6 +13,7 @@ It does not invent ticket counts, customer segments, priorities, or dates. Those
 ## Why the output is trustworthy
 
 - Every executive claim includes example ticket IDs.
+- Users can open the source tickets behind executive claims and recommendations.
 - Counts and charts are computed directly from the uploaded CSV.
 - The chat interface uses dataset filters and search before generating an answer.
 - If the current data cannot answer a question, the app says so.
