@@ -2,6 +2,8 @@
 
 SupportSense is an AI customer support analyzer for mid-size SaaS companies. It turns a CSV of support tickets into executive summaries, top customer pain themes, bot-solvable opportunities, product recommendations, and trusted follow-up answers.
 
+![SupportSense dashboard](outputs/supportsense-redesign.png)
+
 ## Business Problem
 
 Support leaders have thousands of tickets, but leadership wants answers in minutes:

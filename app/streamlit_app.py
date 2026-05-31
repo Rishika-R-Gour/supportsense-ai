@@ -10,9 +10,10 @@ from app.data_loader import filter_tickets, load_ticket_csv, sample_dataset_path
 from app.llm import active_ai_provider, generate_executive_summary
 from app.recommendations import build_product_recommendations, classify_automation_opportunity
 from app.theme_discovery import add_theme_column, discover_themes, theme_discovery_method
+from app.ui_theme import apply_custom_theme, render_kpi_cards, render_lens_card, render_product_header
 
 
-st.set_page_config(page_title="SupportSense", page_icon="SS", layout="wide")
+st.set_page_config(page_title="SupportSense", page_icon="SS", layout="wide", initial_sidebar_state="collapsed")
 
 SOURCE_TICKET_COLUMNS = [
     "ticket_id",
@@ -45,11 +46,13 @@ def add_themes_cached(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    st.title("SupportSense")
-    st.caption("AI customer support analyzer for executive insight, product prioritization, and trusted follow-up questions.")
-    st.sidebar.caption(f"AI provider: {active_ai_provider()}")
-    st.sidebar.caption(f"Theme discovery: {theme_discovery_method()}")
-    audience = st.sidebar.radio("Audience lens", AUDIENCE_OPTIONS, horizontal=True, key="audience_lens")
+    apply_custom_theme()
+    provider = active_ai_provider()
+    theme_method = theme_discovery_method()
+    render_product_header(provider, theme_method)
+    st.sidebar.caption(f"AI provider: {provider}")
+    st.sidebar.caption(f"Theme discovery: {theme_method}")
+    audience = render_audience_selector()
 
     uploaded = st.sidebar.file_uploader("Upload support tickets CSV", type=["csv"])
     if uploaded:
@@ -114,13 +117,21 @@ def render_filters(df: pd.DataFrame) -> pd.DataFrame:
     return filter_tickets(df, date_range=date_range, segments=segments, priorities=priorities, plans=plans)
 
 
+def render_audience_selector() -> str:
+    with st.container(border=True):
+        st.caption("Audience lens")
+        audience = st.radio(
+            "Audience lens",
+            AUDIENCE_OPTIONS,
+            horizontal=True,
+            key="audience_lens",
+            label_visibility="collapsed",
+        )
+    return audience
+
+
 def render_kpis(kpis: dict[str, object]) -> None:
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Tickets", kpis["total_tickets"])
-    col2.metric("High/Critical", f"{kpis['critical_high_pct']}%")
-    col3.metric("Avg CSAT", kpis["avg_csat"])
-    col4.metric("Median Resolve", f"{kpis['median_resolution_hours']}h")
-    col5.metric("Open Work", f"{kpis['open_pct']}%")
+    render_kpi_cards(kpis)
 
 
 def render_executive_view(filtered: pd.DataFrame, themes: list, kpis: dict[str, object], audience: str) -> None:
@@ -165,13 +176,13 @@ def render_audience_brief(filtered: pd.DataFrame, themes: list, kpis: dict[str, 
         ((filtered["customer_segment"] == "Enterprise") & filtered["priority"].isin(["Critical", "High"])).sum()
     ) if not filtered.empty else 0
 
-    with st.container(border=True):
-        st.caption(f"{audience} lens")
-        st.markdown(f"**{AUDIENCE_BRIEFS.get(audience, AUDIENCE_BRIEFS['CEO'])}**")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Top theme", top_theme)
-        col2.metric("Urgent tickets", urgent_count)
-        col3.metric("Enterprise urgent", enterprise_urgent)
+    render_lens_card(
+        audience,
+        AUDIENCE_BRIEFS.get(audience, AUDIENCE_BRIEFS["CEO"]),
+        top_theme,
+        urgent_count,
+        enterprise_urgent,
+    )
 
 
 def render_themes(filtered: pd.DataFrame, themes: list) -> None:
