@@ -80,7 +80,7 @@ pytest tests
 
 ## CSV Format
 
-Required columns:
+Recommended columns:
 
 - `ticket_id`
 - `created_at`
@@ -93,7 +93,7 @@ Required columns:
 - `description`
 - `csat_score`
 
-The bundled `data/sample_tickets.csv` shows the full recommended schema.
+The bundled `data/sample_tickets.csv` shows the full recommended schema. The importer also understands common support-export columns such as `Ticket ID`, `Customer Name`, `Ticket Type`, `Ticket Subject`, `Ticket Description`, `Ticket Priority`, `Ticket Status`, `Product Purchased`, `First Response Time`, `Time to Resolution`, and `Customer Satisfaction Rating`.
 
 ## Evaluation Plan
 
