@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "checks_total": 20,
+  "checks_passed": 20,
+  "checks_failed": 0,
+  "checks": [
+    {
+      "capability": "Product, architecture, API, rollout, deployment, and operations documentation",
+      "passed": true,
+      "evidence": "README.md, SYSTEM_DESIGN.md, docs/API_CONTRACTS.md, docs/DEMO_RUNBOOK.md, docs/DEPLOYMENT.md, docs/EVALUATION_REPORT.md, docs/PRODUCTION_ARCHITECTURE.md, docs/PRODUCTION_READINESS_CHECKLIST.md, docs/PRODUCT_REQUIREMENTS.md, docs/STAGED_ROLLOUT.md"
+    },
+    {
+      "capability": "Versioned FastAPI service, health probes, metrics, and OpenAPI",
+      "passed": true,
+      "evidence": "/api/v1/admin/dashboard, /api/v1/agent-assist, /api/v1/auth/me, /api/v1/chat, /api/v1/conversations, /api/v1/evals/run, /api/v1/tickets, /docs, /health/live, /health/ready, /metrics, /openapi.json"
+    },
+    {
+      "capability": "PostgreSQL-ready production data model",
+      "passed": true,
+      "evidence": "agent_versions, audit_logs, conversations, evaluations, knowledge_sources, messages, tickets, tool_logs, users"
+    },
+    {
+      "capability": "Explicit LangGraph orchestration and policy stages",
+      "passed": true,
+      "evidence": "classify, escalate, execute_tool, guardrail, plan, policy_validator, respond, retrieve, tool_router, validate_result"
+    },
+    {
+      "capability": "Payment, refund, invoice, subscription, customer, and ticket tools",
+      "passed": true,
+      "evidence": "cancel_subscription, create_ticket, delete_account, escalate_ticket, get_customer, get_invoice, get_payment, get_subscription, recent_transactions, refund_customer, refund_status, resend_invoice, update_billing, update_email; strict output contracts"
+    },
+    {
+      "capability": "Hybrid retrieval, query rewrite, metadata filters, reranking, confidence, and citations",
+      "passed": true,
+      "evidence": "Dynamic retrieval check using tenant metadata and kb-refund citation"
+    },
+    {
+      "capability": "Scope, prompt-injection, PII, citation, output, and sensitive-action guardrails",
+      "passed": true,
+      "evidence": "Dynamic prompt-injection rejection and PII-redaction checks"
+    },
+    {
+      "capability": "Human escalation package with full context and tool history",
+      "passed": true,
+      "evidence": "conversation_history, conversation_id, customer_context, intent, reason, recommended_action, retrieved_docs, summary, ticket_id, tool_history"
+    },
+    {
+      "capability": "Authentication and customer/agent/supervisor/admin RBAC",
+      "passed": true,
+      "evidence": "admin, agent, customer, supervisor"
+    },
+    {
+      "capability": "Tenant-scoped tamper-evident audit records linked to prompts and responses",
+      "passed": true,
+      "evidence": "actor_id, attributes, event_hash, event_type, id, occurred_at, outcome, previous_hash, request_id, resource_id, resource_type, tenant_id; prompt_message_id; response_message_id"
+    },
+    {
+      "capability": "Production evaluation suite and release thresholds",
+      "passed": true,
+      "evidence": "140 cases; metrics: cases, citation_integrity_rate, escalation_precision, escalation_recall, intent_accuracy, p95_latency_ms, response_safety_rate, retrieval_accuracy, tool_parameter_accuracy, tool_selection_accuracy"
+    },
+    {
+      "capability": "Retries, timeouts, idempotency, circuit breakers, fallbacks, and structured errors",
+      "passed": true,
+      "evidence": "supportsense/resilience.py, supportsense/tooling.py, supportsense/errors.py, app/llm.py"
+    },
+    {
+      "capability": "Latency, error, cost, tool, escalation, and outcome observability",
+      "passed": true,
+      "evidence": "AGENT_OUTCOMES, CIRCUIT_BREAKER_STATE, ESCALATIONS, HTTP_LATENCY, MODEL_COST_USD, TOOL_EXECUTIONS, TOOL_RETRIES"
+    },
+    {
+      "capability": "AI Agent and Agent Assist response contract",
+      "passed": true,
+      "evidence": "answer, citations, confidence, conversation_id, customer_visible, escalated, escalation_reason, intent, mode, requires_agent_review, tool_call, tool_suggestion"
+    },
+    {
+      "capability": "Conversation Intelligence and operations dashboard",
+      "passed": true,
+      "evidence": "automation_opportunities, average_response_time_ms, containment_rate, conversation_outcomes, customer_sentiment, escalation_rate, knowledge_gaps, tool_failures, top_customer_issues, top_intents"
+    },
+    {
+      "capability": "Docker development/release stack",
+      "passed": true,
+      "evidence": "api, chroma, frontend, grafana, postgres, prometheus, redis"
+    },
+    {
+      "capability": "AWS infrastructure as code",
+      "passed": true,
+      "evidence": "aws_cloudwatch_dashboard, aws_cloudwatch_log_group, aws_cloudwatch_metric_alarm, aws_db_instance, aws_ecs_cluster, aws_elasticache_replication_group, aws_lb, aws_s3_bucket, aws_secretsmanager_secret, aws_vpc"
+    },
+    {
+      "capability": "CI/CD quality, integration, dependency, container, and security gates",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml and .github/workflows/deploy.yml"
+    },
+    {
+      "capability": "Staged rollout controls, deployment ceiling, and shadow privacy",
+      "passed": true,
+      "evidence": "agent_assist, full_automation, limited_automation, offline, shadow; global safety ceiling; internal assistant visibility"
+    },
+    {
+      "capability": "Reproducible end-to-end demo artifact",
+      "passed": true,
+      "evidence": "outputs/supportsense-production-demo.mp4"
+    }
+  ],
+  "external_validation_required": [
+    "GitHub-hosted CI and container security scans",
+    "AWS staging deployment and smoke/load tests",
+    "Production identity-provider, payment, and support-system credentials",
+    "Security/privacy review and staged rollout approvals"
+  ]
+}

@@ -1,0 +1,8 @@
+FROM chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
+
+USER root
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*

@@ -3,15 +3,25 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from app.analytics import compute_kpis, count_by, segment_priority_matrix, tickets_over_time, top_customer_examples
+from app.analytics import (
+    compute_kpis,
+    count_by,
+    segment_priority_matrix,
+    tickets_over_time,
+    top_customer_examples,
+)
 from app.charts import bar_chart, theme_chart, ticket_volume_chart
 from app.chat import answer_question
 from app.data_loader import filter_tickets, load_ticket_csv, sample_dataset_path
 from app.llm import active_ai_provider, generate_executive_summary
 from app.recommendations import build_product_recommendations, classify_automation_opportunity
 from app.theme_discovery import add_theme_column, discover_themes, theme_discovery_method
-from app.ui_theme import apply_custom_theme, render_kpi_cards, render_lens_card, render_product_header
-
+from app.ui_theme import (
+    apply_custom_theme,
+    render_kpi_cards,
+    render_lens_card,
+    render_product_header,
+)
 
 st.set_page_config(page_title="SupportSense", page_icon="SS", layout="wide", initial_sidebar_state="collapsed")
 

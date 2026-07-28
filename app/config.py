@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 
@@ -20,6 +19,18 @@ class Settings:
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
     embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    gemini_input_cost_per_million: float = float(
+        os.getenv("GEMINI_INPUT_COST_PER_MILLION", "0")
+    )
+    gemini_output_cost_per_million: float = float(
+        os.getenv("GEMINI_OUTPUT_COST_PER_MILLION", "0")
+    )
+    anthropic_input_cost_per_million: float = float(
+        os.getenv("ANTHROPIC_INPUT_COST_PER_MILLION", "0")
+    )
+    anthropic_output_cost_per_million: float = float(
+        os.getenv("ANTHROPIC_OUTPUT_COST_PER_MILLION", "0")
+    )
 
 
 settings = Settings()

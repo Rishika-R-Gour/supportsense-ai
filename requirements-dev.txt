@@ -1,0 +1,7 @@
+-r requirements.txt
+-r requirements-production.txt
+ruff>=0.12,<1
+pip-audit>=2.9,<3
+# Starlette's supported TestClient transport; pinned for reproducible tests.
+httpx2==2.7.0
+pytest>=8.2,<10

@@ -1,5 +1,11 @@
 # SupportSense System Design
 
+> Historical design note: this document captures the original analyzer and an
+> early production proposal. The authoritative implemented design is
+> [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md), with the
+> release state tracked in
+> [docs/PRODUCTION_READINESS_CHECKLIST.md](docs/PRODUCTION_READINESS_CHECKLIST.md).
+
 SupportSense is an AI customer support analyzer for SaaS teams. The demo runs as a Streamlit app, but the product is designed as a production system that separates upload handling, ticket analysis, AI generation, chat tools, evaluations, and observability.
 
 ## 1. Product Goal

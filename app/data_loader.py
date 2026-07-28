@@ -5,7 +5,6 @@ from typing import BinaryIO
 
 import pandas as pd
 
-
 REQUIRED_COLUMNS = {
     "ticket_id",
     "created_at",

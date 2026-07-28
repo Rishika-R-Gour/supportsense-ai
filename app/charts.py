@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-
 COLOR_SEQUENCE = ["#0f766e", "#e4572e", "#2454a6", "#d49b25", "#6d5dfc", "#64748b", "#2f855a"]
 
 

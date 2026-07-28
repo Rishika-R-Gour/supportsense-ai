@@ -12,7 +12,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from app.config import settings
 
-
 THEME_TAXONOMY: dict[str, list[str]] = {
     "Reporting exports": [
         "export",

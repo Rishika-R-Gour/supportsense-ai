@@ -5,7 +5,6 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-
 random.seed(42)
 
 CUSTOMERS = [

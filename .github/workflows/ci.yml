@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test-evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --require-hashes -r requirements-dev.lock
+      - run: ruff check .
+      - run: pytest -q
+        env:
+          SUPPORTSENSE_ENV: test
+          SUPPORTSENSE_API_KEYS: dev-admin-key:demo-tenant:admin
+      - run: python scripts/run_evals.py
+      - run: python scripts/run_production_evals.py
+      - run: python scripts/verify_roadmap.py
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+      - name: Build reproducible demo video
+        run: python scripts/build_demo_video.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supportsense-release-evidence
+          path: |
+            outputs/production-eval-results.json
+            outputs/roadmap-verification.json
+            outputs/supportsense-production-demo.mp4
+          retention-days: 14
+      - name: Verify clean migration chain and schema drift
+        env:
+          DATABASE_URL: sqlite:////tmp/supportsense-migrations.db
+        run: |
+          alembic upgrade head
+          alembic check
+
+  postgres-redis-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supportsense
+          POSTGRES_USER: supportsense
+          POSTGRES_PASSWORD: supportsense
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supportsense"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      chroma:
+        image: chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
+        ports:
+          - 8001:8000
+        options: >-
+          --health-cmd "chroma --version"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      SUPPORTSENSE_ENV: production
+      SUPPORTSENSE_API_KEYS: integration-admin-key:integration-tenant:admin
+      SUPPORTSENSE_TOOL_BACKEND: disabled
+      SUPPORTSENSE_ROLLOUT_STAGE: offline
+      DATABASE_URL: postgresql+psycopg://supportsense:supportsense@127.0.0.1:5432/supportsense
+      REDIS_URL: redis://127.0.0.1:6379/0
+      CHROMA_URL: http://127.0.0.1:8001
+      SUPPORTSENSE_EMBEDDING_PROVIDER: local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --require-hashes -r requirements-production.lock
+      - run: alembic upgrade head
+      - name: Start API and run authenticated smoke test
+        run: |
+          uvicorn supportsense.api:app --host 127.0.0.1 --port 8000 > /tmp/supportsense-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid"; cat /tmp/supportsense-api.log' EXIT
+          python scripts/smoke_test.py \
+            --base-url http://127.0.0.1:8000 \
+            --token integration-admin-key \
+            --exercise-vector
+
+  dependency-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --require-hashes -r requirements-dev.lock
+      - run: pip-audit --vulnerability-service osv -r requirements-production.lock
+      - run: pip-audit --vulnerability-service osv -r requirements-frontend.lock
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container-build-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t supportsense-api:${{ github.sha }} .
+      - name: Build frontend image
+        run: docker build -f Dockerfile.frontend -t supportsense-frontend:${{ github.sha }} .
+      - name: Build hardened Chroma image
+        run: docker build -f Dockerfile.chroma -t supportsense-chroma:${{ github.sha }} .
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: supportsense-api:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: supportsense-frontend:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan Chroma image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: supportsense-chroma:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"

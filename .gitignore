@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 .streamlit/
+*.db
+*.db-shm
+*.db-wal
+.terraform/

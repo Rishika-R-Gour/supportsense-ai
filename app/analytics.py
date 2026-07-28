@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-
 PRIORITY_ORDER = ["Critical", "High", "Medium", "Low"]
 SEGMENT_ORDER = ["Enterprise", "Mid-Market", "SMB", "Startup"]
 
