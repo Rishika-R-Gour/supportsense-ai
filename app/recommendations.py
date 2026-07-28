@@ -4,7 +4,6 @@ import pandas as pd
 
 from app.theme_discovery import ThemeResult
 
-
 BOT_SOLVABLE_THEMES = {
     "Billing and pricing",
     "Onboarding and documentation",

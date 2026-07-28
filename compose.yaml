@@ -1,0 +1,108 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      SUPPORTSENSE_API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment:
+      SUPPORTSENSE_ENV: development
+      SUPPORTSENSE_API_KEYS: dev-admin-key:demo-tenant:admin
+      SUPPORTSENSE_ROLLOUT_STAGE: limited_automation
+      SUPPORTSENSE_TOOL_BACKEND: sandbox
+      DATABASE_URL: postgresql+psycopg://supportsense:supportsense@postgres:5432/supportsense
+      REDIS_URL: redis://redis:6379/0
+      CHROMA_URL: http://chroma:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: supportsense
+      POSTGRES_USER: supportsense
+      POSTGRES_PASSWORD: supportsense
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supportsense"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chroma:
+    # Pure-Rust single-node image from Chroma's 1.5.9 release commit.
+    # The immutable digest excludes the vulnerable Python server distribution.
+    image: chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
+    platform: linux/amd64
+    volumes:
+      - chroma-data:/data
+    ports:
+      - "8001:8000"
+    healthcheck:
+      # The minimal Rust image intentionally contains no Python or curl. API
+      # readiness performs the real heartbeat before accepting traffic.
+      test: ["CMD", "chroma", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: supportsense
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  chroma-data:

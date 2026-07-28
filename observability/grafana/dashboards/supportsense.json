@@ -1,0 +1,68 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "title": "Requests / second",
+      "type": "timeseries",
+      "targets": [{"expr": "sum(rate(supportsense_http_requests_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+    },
+    {
+      "title": "P95 HTTP latency",
+      "type": "timeseries",
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(supportsense_http_request_duration_seconds_bucket[5m])))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+    },
+    {
+      "title": "5xx errors / second",
+      "type": "timeseries",
+      "targets": [{"expr": "sum(rate(supportsense_http_requests_total{status=~\"5..\"}[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+    },
+    {
+      "title": "Tool failures",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (tool) (rate(supportsense_tool_executions_total{status=\"failed\"}[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}
+    },
+    {
+      "title": "Escalations",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (reason) (rate(supportsense_escalations_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}
+    },
+    {
+      "title": "Estimated model cost",
+      "type": "stat",
+      "targets": [{"expr": "sum(supportsense_model_cost_usd_total)", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}
+    },
+    {
+      "title": "Model tokens",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (provider, direction) (rate(supportsense_model_tokens_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "title": "Circuit breaker rejections",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (dependency) (rate(supportsense_circuit_breaker_rejections_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 16}
+    },
+    {
+      "title": "Conversation outcomes",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (intent, outcome) (rate(supportsense_agent_outcomes_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 16}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["supportsense", "production"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "SupportSense Production",
+  "uid": "supportsense-production",
+  "version": 1
+}

@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: SupportSense
+    folder: SupportSense
+    type: file
+    disableDeletion: true
+    options:
+      path: /var/lib/grafana/dashboards

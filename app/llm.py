@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import pandas as pd
 
 from app.config import settings
 from app.theme_discovery import ThemeResult
+from supportsense.observability import MODEL_COST_USD, MODEL_REQUESTS, MODEL_TOKENS
+from supportsense.resilience import CircuitBreaker, CircuitOpenError
+
+LOGGER = logging.getLogger("supportsense.models")
+_PROVIDER_CIRCUITS = {
+    "gemini": CircuitBreaker(failure_threshold=3, recovery_timeout_seconds=30),
+    "anthropic": CircuitBreaker(failure_threshold=3, recovery_timeout_seconds=30),
+}
 
 
 def generate_executive_summary(
@@ -15,34 +24,60 @@ def generate_executive_summary(
     kpis: dict[str, Any],
     audience: str = "CEO",
 ) -> list[dict[str, Any]]:
-    """Return cited executive bullets, using a configured model and a deterministic fallback otherwise."""
-    if settings.ai_provider in {"auto", "gemini"} and settings.gemini_api_key:
+    """Return cited executive bullets with provider failover and a local fallback."""
+    for provider in _provider_order():
+        model = (
+            settings.gemini_model
+            if provider == "gemini"
+            else settings.anthropic_model
+        )
+        circuit = _PROVIDER_CIRCUITS[provider]
         try:
-            return _generate_with_gemini(df, themes, kpis, audience)
-        except Exception:
-            if settings.ai_provider == "gemini":
-                return _fallback_summary(df, themes, kpis, audience)
-
-    if settings.ai_provider in {"auto", "anthropic"} and settings.anthropic_api_key:
+            circuit.before_call()
+        except CircuitOpenError:
+            MODEL_REQUESTS.labels(provider, model, "circuit_open").inc()
+            LOGGER.warning("Skipping %s because its circuit is open", provider)
+            continue
         try:
-            return _generate_with_anthropic(df, themes, kpis, audience)
+            if provider == "gemini":
+                result = _generate_with_gemini(df, themes, kpis, audience)
+            else:
+                result = _generate_with_anthropic(df, themes, kpis, audience)
         except Exception:
-            return _fallback_summary(df, themes, kpis, audience)
+            circuit.record_failure()
+            MODEL_REQUESTS.labels(provider, model, "error").inc()
+            LOGGER.exception("%s summary generation failed; trying fallback", provider)
+            continue
+        circuit.record_success()
+        MODEL_REQUESTS.labels(provider, model, "success").inc()
+        return result
 
+    MODEL_REQUESTS.labels("local", "deterministic", "fallback").inc()
     return _fallback_summary(df, themes, kpis, audience)
 
 
 def active_ai_provider() -> str:
-    if settings.ai_provider == "gemini" and settings.gemini_api_key:
-        return f"Gemini ({settings.gemini_model})"
-    if settings.ai_provider == "anthropic" and settings.anthropic_api_key:
-        return f"Claude ({settings.anthropic_model})"
-    if settings.ai_provider == "auto":
-        if settings.gemini_api_key:
-            return f"Gemini ({settings.gemini_model})"
-        if settings.anthropic_api_key:
-            return f"Claude ({settings.anthropic_model})"
+    providers = _provider_order()
+    if providers:
+        labels = {
+            "gemini": f"Gemini ({settings.gemini_model})",
+            "anthropic": f"Claude ({settings.anthropic_model})",
+        }
+        return " → ".join([*(labels[item] for item in providers), "Local fallback"])
     return "Local deterministic fallback"
+
+
+def _provider_order() -> list[str]:
+    available = {
+        "gemini": bool(settings.gemini_api_key),
+        "anthropic": bool(settings.anthropic_api_key),
+    }
+    preferred = {
+        "auto": ["gemini", "anthropic"],
+        "gemini": ["gemini", "anthropic"],
+        "anthropic": ["anthropic", "gemini"],
+    }.get(settings.ai_provider, [])
+    return [provider for provider in preferred if available[provider]]
 
 
 def _summary_prompt(df: pd.DataFrame, themes: list[ThemeResult], kpis: dict[str, Any], audience: str) -> dict[str, Any]:
@@ -90,6 +125,15 @@ def _generate_with_gemini(
             response_mime_type="application/json",
         ),
     )
+    usage = getattr(response, "usage_metadata", None)
+    _record_usage(
+        "gemini",
+        settings.gemini_model,
+        int(getattr(usage, "prompt_token_count", 0) or 0),
+        int(getattr(usage, "candidates_token_count", 0) or 0),
+        settings.gemini_input_cost_per_million,
+        settings.gemini_output_cost_per_million,
+    )
     return _parse_json_response(response.text or "[]")
 
 
@@ -109,8 +153,34 @@ def _generate_with_anthropic(
         temperature=0.1,
         messages=[{"role": "user", "content": json.dumps(prompt)}],
     )
+    usage = getattr(response, "usage", None)
+    _record_usage(
+        "anthropic",
+        settings.anthropic_model,
+        int(getattr(usage, "input_tokens", 0) or 0),
+        int(getattr(usage, "output_tokens", 0) or 0),
+        settings.anthropic_input_cost_per_million,
+        settings.anthropic_output_cost_per_million,
+    )
     text = response.content[0].text
     return _parse_json_response(text)
+
+
+def _record_usage(
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    input_cost_per_million: float,
+    output_cost_per_million: float,
+) -> None:
+    MODEL_TOKENS.labels(provider, model, "input").inc(input_tokens)
+    MODEL_TOKENS.labels(provider, model, "output").inc(output_tokens)
+    estimated_cost = (
+        input_tokens * input_cost_per_million
+        + output_tokens * output_cost_per_million
+    ) / 1_000_000
+    MODEL_COST_USD.labels(provider, model).inc(estimated_cost)
 
 
 def _fallback_summary(

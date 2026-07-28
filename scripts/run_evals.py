@@ -4,13 +4,12 @@ import csv
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from app.chat import answer_question
-from app.data_loader import load_ticket_csv, sample_dataset_path
-from app.theme_discovery import add_theme_column
+from app.chat import answer_question  # noqa: E402
+from app.data_loader import load_ticket_csv, sample_dataset_path  # noqa: E402
+from app.theme_discovery import add_theme_column  # noqa: E402
 
 EVAL_FILE = ROOT / "evals" / "supportsense_eval_questions.csv"
 OUTPUT_FILE = ROOT / "outputs" / "eval_results.csv"
