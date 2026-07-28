@@ -255,15 +255,15 @@ def main() -> None:
             token=args.token,
             method="PUT",
             payload={
-                "key": "preferred_support_channel",
-                "value": "email",
+                "key": "preferred_language",
+                "value": "Spanish",
                 "conversation_id": first["conversation_id"],
             },
         ),
         200,
     )
     assert isinstance(memory, dict)
-    assert memory["value"] == "email"
+    assert memory["value"] == "Spanish"
 
     dashboard = expect_status(
         request(
