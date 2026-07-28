@@ -143,6 +143,12 @@ commit; it does not install the vulnerable full Python server distribution.
 set it to `gemini` or `openai` with the corresponding API key for semantic
 production embeddings.
 
+For AWS Free Plan accounts with limited promotional credits, use the separate
+[credits-limited staging profile](infra/terraform-free/README.md). It runs the
+stack on one auto-stopping EC2 instance, enforces a small monthly budget, and
+keeps the agent in shadow mode. It is for synthetic demonstrations only and
+does not replace the highly available production architecture.
+
 Production documentation:
 
 - [Product requirements](docs/PRODUCT_REQUIREMENTS.md)
@@ -155,6 +161,7 @@ Production documentation:
 - [Roadmap traceability and external gates](docs/ROADMAP_TRACEABILITY.md)
 - [Demo runbook and recording script](docs/DEMO_RUNBOOK.md)
 - [AWS deployment](infra/terraform/README.md)
+- [AWS credits-limited staging](infra/terraform-free/README.md)
 
 ## CSV Format
 

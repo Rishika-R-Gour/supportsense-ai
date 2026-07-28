@@ -1,0 +1,101 @@
+services:
+  gateway:
+    image: nginx:1.29-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/free-tier/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 64m
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      SUPPORTSENSE_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 256m
+
+  api:
+    build: .
+    command:
+      - /bin/sh
+      - -c
+      - alembic upgrade head && uvicorn supportsense.api:app --host 0.0.0.0 --port 8000 --proxy-headers
+    environment:
+      SUPPORTSENSE_ENV: production
+      SUPPORTSENSE_API_KEYS: ${SUPPORTSENSE_API_KEY}:demo-tenant:admin
+      SUPPORTSENSE_ROLLOUT_STAGE: shadow
+      SUPPORTSENSE_TOOL_BACKEND: disabled
+      SUPPORTSENSE_EMBEDDING_PROVIDER: local
+      DATABASE_URL: postgresql+psycopg://supportsense:${POSTGRES_PASSWORD}@postgres:5432/supportsense
+      REDIS_URL: redis://redis:6379/0
+      CHROMA_URL: http://chroma:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: supportsense
+      POSTGRES_USER: supportsense
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supportsense"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 384m
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 128m
+
+  chroma:
+    build:
+      context: .
+      dockerfile: Dockerfile.chroma
+    image: supportsense-chroma:1.5.9-hardened
+    platform: linux/amd64
+    volumes:
+      - chroma-data:/data
+    healthcheck:
+      test: ["CMD", "chroma", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 512m
+
+volumes:
+  postgres-data:
+  redis-data:
+  chroma-data:

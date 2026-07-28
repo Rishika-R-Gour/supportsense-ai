@@ -163,3 +163,26 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
+
+  infrastructure-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - name: Validate production Terraform
+        working-directory: infra/terraform
+        run: |
+          terraform init -backend=false
+          terraform validate
+      - name: Validate credits-limited Terraform
+        working-directory: infra/terraform-free
+        run: |
+          terraform init -backend=false
+          terraform validate
+      - name: Validate credits-limited Compose profile
+        env:
+          POSTGRES_PASSWORD: validation-password
+          SUPPORTSENSE_API_KEY: validation-api-key
+        run: docker compose --file compose.free-tier.yaml config --quiet
