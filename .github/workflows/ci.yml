@@ -27,6 +27,10 @@ jobs:
       - run: python scripts/run_evals.py
       - run: python scripts/run_production_evals.py
       - run: python scripts/verify_roadmap.py
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
       - name: Build reproducible demo video
         run: python scripts/build_demo_video.py
       - uses: actions/upload-artifact@v4
@@ -133,21 +137,24 @@ jobs:
         run: docker build -t supportsense-api:${{ github.sha }} .
       - name: Build frontend image
         run: docker build -f Dockerfile.frontend -t supportsense-frontend:${{ github.sha }} .
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: supportsense-api:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: supportsense-frontend:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - name: Scan Chroma image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
           format: table

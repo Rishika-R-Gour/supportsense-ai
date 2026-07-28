@@ -1,0 +1,2 @@
+# Synthetic payment token used by the audit-redaction test, not a credential.
+35b11a9bf9db61aed2317b86c91a91500abc5332:tests/test_api.py:generic-api-key:299

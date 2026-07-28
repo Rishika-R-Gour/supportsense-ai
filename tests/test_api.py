@@ -296,7 +296,7 @@ def test_sensitive_tool_and_approval_audit_fields_are_redacted() -> None:
         tool_request = {
             "arguments": {
                 "customer_id": "cus_demo",
-                "payment_method_token": "pm_secret_12345678",
+                "payment_method_token": "testtest",
             },
             "idempotency_key": f"billing-audit-{uuid4()}",
         }

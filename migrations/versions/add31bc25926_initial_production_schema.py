@@ -28,7 +28,11 @@ def upgrade() -> None:
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name', 'version')
+    sa.UniqueConstraint(
+        'name',
+        'version',
+        name='uq_agent_versions_name_version',
+    )
     )
     op.create_table('tenants',
     sa.Column('id', sa.String(length=36), nullable=False),
