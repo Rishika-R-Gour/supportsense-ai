@@ -91,6 +91,8 @@ resource "aws_instance" "demo" {
   user_data_replace_on_change          = false
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     auto_stop_hour_utc = var.auto_stop_hour_utc
+    buildx_checksum    = "d41ece72044243b4f58b343441ae37446d9c29a7d6b5e11c61847bbcf8f7dfda"
+    buildx_version     = "v0.35.0"
     compose_checksum   = "f9ebc6ebdb19d769b793c245a736caaeb198c62587f13b25c660c13b4987f959"
     compose_version    = "v5.3.1"
     git_ref            = var.git_ref
