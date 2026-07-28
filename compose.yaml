@@ -58,8 +58,11 @@ services:
 
   chroma:
     # Pure-Rust single-node image from Chroma's 1.5.9 release commit.
-    # The immutable digest excludes the vulnerable Python server distribution.
-    image: chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
+    # The hardened wrapper applies current Debian security updates.
+    build:
+      context: .
+      dockerfile: Dockerfile.chroma
+    image: supportsense-chroma:1.5.9-hardened
     platform: linux/amd64
     volumes:
       - chroma-data:/data

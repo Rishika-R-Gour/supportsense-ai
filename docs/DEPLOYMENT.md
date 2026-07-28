@@ -18,7 +18,8 @@ Services:
 
 The HTTP-only `chromadb-client` is pinned to `1.5.9`. The server is Chroma's
 pure-Rust `rust-frontend-service-oss` image from the same release commit,
-locked to its OCI digest. SupportSense does not install or run
+locked to its OCI digest and wrapped by `Dockerfile.chroma` to apply current
+Debian security updates. SupportSense does not install or run
 the vulnerable Python server from the full `chromadb` distribution. The client
 always supplies embeddings and explicitly disables collection embedding
 functions. This avoids both server-side model loading and execution of
