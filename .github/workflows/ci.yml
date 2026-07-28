@@ -23,7 +23,7 @@ jobs:
       - run: pytest -q
         env:
           SUPPORTSENSE_ENV: test
-          SUPPORTSENSE_API_KEYS: test-admin-key:test-tenant:admin
+          SUPPORTSENSE_API_KEYS: dev-admin-key:demo-tenant:admin
       - run: python scripts/run_evals.py
       - run: python scripts/run_production_evals.py
       - run: python scripts/verify_roadmap.py
