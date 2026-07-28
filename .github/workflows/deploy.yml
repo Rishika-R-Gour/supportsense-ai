@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy Production Architecture (Paid)
 
 on:
   workflow_dispatch:
@@ -8,6 +8,11 @@ on:
         required: true
         type: choice
         options: [staging, production]
+      confirm_paid_architecture:
+        description: This deploys ECS/RDS/ALB/NAT resources that can consume credits
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -19,7 +24,9 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_paid_architecture
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -44,6 +51,10 @@ jobs:
         working-directory: infra/terraform
       - run: terraform validate
         working-directory: infra/terraform
+      - run: terraform init -backend=false
+        working-directory: infra/terraform-free
+      - run: terraform validate
+        working-directory: infra/terraform-free
 
   deploy:
     needs: verify

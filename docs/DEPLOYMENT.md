@@ -44,6 +44,20 @@ Run migrations explicitly after schema changes:
 docker compose run --rm api alembic upgrade head
 ```
 
+## Credits-limited AWS staging
+
+For a personal AWS Free Plan account, do not apply the production Terraform
+stack: its NAT gateway, load balancer, ECS services, managed Redis, and
+Multi-AZ RDS are continuously billed. Use
+[`infra/terraform-free`](../infra/terraform-free/README.md) instead.
+The GitHub workflow for that full stack is labelled
+`Deploy Production Architecture (Paid)` and requires explicit confirmation.
+
+The credits-limited profile uses one auto-stopping EC2 instance, encrypted
+storage, an AWS Budget, SSM administration, and an IP-restricted HTTP endpoint.
+It runs only in shadow mode with support tools disabled. Use synthetic data and
+destroy it when the demonstration is complete.
+
 ## AWS prerequisites
 
 1. Configure AWS OIDC for GitHub Actions; do not use long-lived AWS keys.

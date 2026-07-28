@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+dnf upgrade --assumeyes
+dnf install --assumeyes docker git openssl
+systemctl enable --now docker
+
+install -d -m 0755 /usr/local/lib/docker/cli-plugins
+curl --fail --location --silent --show-error \
+  "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-x86_64" \
+  --output /usr/local/lib/docker/cli-plugins/docker-compose
+echo "${compose_checksum}  /usr/local/lib/docker/cli-plugins/docker-compose" \
+  | sha256sum --check
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+
+if ! swapon --show | grep --quiet /swapfile; then
+  fallocate --length 2G /swapfile
+  chmod 0600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo "/swapfile none swap sw 0 0" >> /etc/fstab
+fi
+
+install -d -m 0700 /opt/supportsense
+git clone --branch "${git_ref}" --depth 1 \
+  "${repository_url}" /opt/supportsense/repository
+cd /opt/supportsense/repository
+
+umask 0077
+postgres_password="$(openssl rand -hex 24)"
+api_key="$(openssl rand -hex 24)"
+cat > .env.free-tier <<ENV
+POSTGRES_PASSWORD=$${postgres_password}
+SUPPORTSENSE_API_KEY=$${api_key}
+ENV
+
+docker compose \
+  --file compose.free-tier.yaml \
+  --env-file .env.free-tier \
+  up --detach --build
+
+cat > /etc/systemd/system/supportsense-autostop.service <<UNIT
+[Unit]
+Description=Stop the SupportSense credits-limited EC2 instance
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/shutdown -h now
+UNIT
+
+cat > /etc/systemd/system/supportsense-autostop.timer <<TIMER
+[Unit]
+Description=Daily SupportSense credits guardrail
+
+[Timer]
+OnCalendar=*-*-* ${auto_stop_hour_utc}:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+systemctl daemon-reload
+systemctl enable --now supportsense-autostop.timer
