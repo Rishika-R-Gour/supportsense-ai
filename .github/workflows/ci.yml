@@ -131,21 +131,21 @@ jobs:
         run: docker build -t supportsense-api:${{ github.sha }} .
       - name: Build frontend image
         run: docker build -f Dockerfile.frontend -t supportsense-frontend:${{ github.sha }} .
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: supportsense-api:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: supportsense-frontend:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: chromadb/rust-frontend-service-oss@sha256:ab4270f868cb4a28d78f6bc399b9ea3c82efae56d8c11ccde45e972ab6c7d73e
           format: table
