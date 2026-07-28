@@ -108,6 +108,12 @@ resource "aws_instance" "demo" {
     http_tokens   = "required"
   }
 
+  lifecycle {
+    # AMI and user data are first-boot inputs. Updating either on an existing
+    # demo must be an intentional replacement, not routine plan drift.
+    ignore_changes = [ami, user_data]
+  }
+
   root_block_device {
     encrypted             = true
     volume_size           = 20
