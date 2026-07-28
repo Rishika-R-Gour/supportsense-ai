@@ -13,6 +13,13 @@ echo "${compose_checksum}  /usr/local/lib/docker/cli-plugins/docker-compose" \
   | sha256sum --check
 chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
 
+curl --fail --location --silent --show-error \
+  "https://github.com/docker/buildx/releases/download/${buildx_version}/buildx-${buildx_version}.linux-amd64" \
+  --output /usr/local/lib/docker/cli-plugins/docker-buildx
+echo "${buildx_checksum}  /usr/local/lib/docker/cli-plugins/docker-buildx" \
+  | sha256sum --check
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-buildx
+
 if ! swapon --show | grep --quiet /swapfile; then
   fallocate --length 2G /swapfile
   chmod 0600 /swapfile

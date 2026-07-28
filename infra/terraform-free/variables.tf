@@ -5,12 +5,12 @@ variable "aws_region" {
 
 variable "instance_type" {
   type        = string
-  default     = "t3a.small"
+  default     = "t3.small"
   description = "Two GiB is the practical minimum for the six-container demo stack."
 
   validation {
-    condition     = contains(["t3.small", "t3a.small"], var.instance_type)
-    error_message = "Use t3.small or t3a.small to keep the credits-limited profile bounded."
+    condition     = var.instance_type == "t3.small"
+    error_message = "Use the x86_64 Free Plan-eligible t3.small instance type."
   }
 }
 

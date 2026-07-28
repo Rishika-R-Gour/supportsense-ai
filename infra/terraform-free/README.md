@@ -5,7 +5,7 @@ It deliberately does **not** claim to be highly available production.
 
 It creates:
 
-- one `t3a.small` EC2 instance in the default VPC;
+- one Free Plan-eligible `t3.small` EC2 instance in the default VPC;
 - 20 GB of encrypted `gp3` storage;
 - an account-level monthly AWS Budget;
 - an SSM instance role, with no SSH port;
